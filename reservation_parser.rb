@@ -1,0 +1,132 @@
+require_relative 'reservation'
+Dir["./lib/segments/*.rb"].each {|file| require file }
+
+class ReservationParser
+
+  TRANSPORT_TYPES = %w[Flight Train].freeze
+  ACCOMMODATION_TYPES = %w[Hotel].freeze
+
+  def self.parse_file(filename)
+    reservations = []
+    current_reservation = nil
+
+    File.foreach(filename) do |line|
+      line = line.strip
+      next if line.empty?
+
+      if line == 'RESERVATION'
+        reservations << current_reservation if current_reservation
+        current_reservation = Reservation.new
+      elsif line.start_with?('SEGMENT:')
+        segment = parse_segment(line)
+        current_reservation&.add_segment(segment)
+      else
+        # Ignore
+        puts "Skipping invalid line: #{line}"
+      end
+    end
+
+    reservations << current_reservation if current_reservation
+    reservations
+  end
+
+  private
+
+  def self.parse_segment(line)
+    type_match = line.match(/^SEGMENT: (\w+)/)
+    raise "Invalid segment format" unless type_match
+
+    segment_type = type_match[1]
+
+    if TRANSPORT_TYPES.include?(segment_type)
+      parse_transport_segment(line, segment_type)
+    elsif ACCOMMODATION_TYPES.include?(segment_type)
+      parse_accommodation_segment(line, segment_type)
+    else
+      raise "Unknown segment type: #{segment_type}"
+    end
+  end
+
+  def self.parse_transport_segment(line, type)
+    # Pattern: SEGMENT: Type ABC 2024-12-25 14:30 -> DEF 16:45
+    pattern = /^SEGMENT: #{type} (\w{3}) (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) -> (\w{3}) (\d{2}:\d{2})$/
+    match = line.match(pattern)
+    raise "Invalid #{type.downcase} segment format" unless match
+
+    origin, date, start_time, destination, end_time = match[1..5]
+
+    validate_iata_code(origin, "origin")
+    validate_iata_code(destination, "destination")
+    validate_date(date)
+    validate_time(start_time)
+    validate_time(end_time)
+
+    segment_class = Object.const_get("#{type}Segment")
+    segment_class.new(
+      origin: origin,
+      destination: destination,
+      start_date: date,
+      start_time: start_time,
+      end_time: end_time
+    )
+  end
+
+  def self.parse_accommodation_segment(line, type)
+    # Pattern: SEGMENT: Type ABC 2024-12-25 -> 2024-12-27
+    pattern = /^SEGMENT: #{type} (\w{3}) (\d{4}-\d{2}-\d{2}) -> (\d{4}-\d{2}-\d{2})$/
+    match = line.match(pattern)
+    raise "Invalid #{type.downcase} segment format" unless match
+
+    city, start_date, end_date = match[1..3]
+
+    validate_iata_code(city, "city")
+    validate_date(start_date)
+    validate_date(end_date)
+    validate_date_range(start_date, end_date)
+
+    segment_class = Object.const_get("#{type}Segment")
+    segment_class.new(
+      city: city,
+      start_date: start_date,
+      end_date: end_date
+    )
+  end
+
+  def self.validate_iata_code(code, field_name)
+    unless code.match?(/^[A-Z]{3}$/)
+      raise "Invalid IATA #{field_name} format: #{code}. Must be 3 uppercase letters"
+    end
+  end
+
+  def self.validate_date(date_str)
+    unless date_str.match?(/^\d{4}-\d{2}-\d{2}$/)
+      raise "Invalid date format: #{date_str}. Must be YYYY-MM-DD"
+    end
+
+    begin
+      Date.parse(date_str)
+    rescue Date::Error
+      raise "Invalid date: #{date_str}"
+    end
+  end
+
+  def self.validate_time(time_str)
+    unless time_str.match?(/^\d{2}:\d{2}$/)
+      raise "Invalid time format: #{time_str}. Must be HH:MM"
+    end
+
+    hour, minute = time_str.split(':').map(&:to_i)
+    raise "Invalid hour: #{hour}" unless (0..23).include?(hour)
+    raise "Invalid minute: #{minute}" unless (0..59).include?(minute)
+  end
+
+  def self.validate_date_range(start_date, end_date)
+    start_d = Date.parse(start_date)
+    end_d = Date.parse(end_date)
+
+    if end_d <= start_d
+      raise "End date (#{end_date}) must be after start date (#{start_date})"
+    end
+  end
+
+end
