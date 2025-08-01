@@ -20,7 +20,6 @@ class TransitReservation < ReservationSegment
     DateTime.parse("#{@start_date} #{@end_time}")
   end
 
-
   def to_s
     "#{transport_type} from #{origin} to #{destination} at #{start_date} #{start_time} to #{end_time}"
   end

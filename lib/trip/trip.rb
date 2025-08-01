@@ -22,10 +22,6 @@ class Trip
     @segments.select { |s| s.is_a?(AccommodationReservation) }
   end
 
-  def sort_segments!
-    @segments.sort_by!(&:start_datetime)
-  end
-
   def to_s
     result = ["TRIP to #{destination}"]
     @segments.each { |segment| result << segment.to_s }

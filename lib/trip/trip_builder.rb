@@ -16,6 +16,11 @@ class TripBuilder
 
     reservation_chains = build_chains(transit_segments, accommodation_segments)
     reservation_chains
+
+    enhanced_trips = associate_accommodation_with_destination(reservation_chains)
+
+    trips = create_trip_objects(enhanced_trips)
+    trips.sort_by { |trip| trip.segments.first.start_datetime }
   end
 
   private
@@ -87,6 +92,53 @@ class TripBuilder
 
     time_diff_hours = ((transit2.start_datetime - transit1.end_datetime) * 24).abs.to_f
     time_diff_hours >= 0 && time_diff_hours < 24
+  end
+
+  def associate_accommodation_with_destination(transit_chains)
+    transit_chains.map do |chain|
+      {
+        transits: chain,
+        final_destination: determine_final_destination(chain)
+      }
+    end
+  end
+
+  def determine_final_destination(chain)
+    return nil if chain.empty?
+
+    accommodation_segments = chain.select { |s| s.is_a?(AccommodationReservation) }
+
+    if !accommodation_segments.empty?
+      last_accommodation = accommodation_segments.max_by(&:start_datetime)
+      return last_accommodation.location
+    end
+
+    transit_segments = chain.select { |s| s.is_a?(TransitReservation) }
+
+    return chain.first.destination if transit_segments.empty?
+
+    transit_destinations = transit_segments
+                             .sort_by(&:start_datetime)
+                             .map(&:destination)
+
+    transit_destinations.reverse.each do |destination|
+      return destination if destination != @base_airport
+    end
+
+    transit_destinations.last || chain.last.destination
+  end
+
+
+  def create_trip_objects(enhanced_chains)
+    enhanced_chains.map do |chain_data|
+      destination = chain_data[:final_destination]
+      trip = Trip.new(destination)
+
+      all_segments = chain_data[:transits]
+      all_segments.each { |segment| trip.add_segment(segment) }
+
+      trip
+    end
   end
 
   def already_in_chain?(transit, chains)
