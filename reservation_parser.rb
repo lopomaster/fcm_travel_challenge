@@ -1,12 +1,13 @@
 require_relative 'reservation'
 require_relative 'lib/errors/itinerary_app_errors'
 Dir["./lib/segments/*.rb"].each {|file| require file }
+Dir["./extended_segments_samples/*.rb"].each {|file| require file }
 
 class ReservationParser
   include ItineraryAppErrors
 
-  TRANSPORT_TYPES = %w[Flight Train].freeze
-  ACCOMMODATION_TYPES = %w[Hotel].freeze
+  TRANSPORT_TYPES = %w[Flight Train Bus].freeze
+  ACCOMMODATION_TYPES = %w[Hotel Apartment].freeze
 
   def self.parse_file(filename)
     reservations = []
