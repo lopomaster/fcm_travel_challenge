@@ -15,6 +15,10 @@ class AccommodationReservation < ReservationSegment
     DateTime.parse("#{@end_date} 23:59")
   end
 
+  def accommodation_segment?
+    true
+  end
+
   def to_s
     "#{accommodation_type} at #{location} on #{start_date} to #{end_date}"
   end

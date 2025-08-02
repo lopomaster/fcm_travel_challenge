@@ -1,7 +1,9 @@
 require_relative 'reservation'
+require_relative 'lib/errors/itinerary_app_errors'
 Dir["./lib/segments/*.rb"].each {|file| require file }
 
 class ReservationParser
+  include ItineraryAppErrors
 
   TRANSPORT_TYPES = %w[Flight Train].freeze
   ACCOMMODATION_TYPES = %w[Hotel].freeze
@@ -34,7 +36,7 @@ class ReservationParser
 
   def self.parse_segment(line)
     type_match = line.match(/^SEGMENT: (\w+)/)
-    raise "Invalid segment format" unless type_match
+    raise ItineraryAppErrors::ReservationParserError, "Invalid segment format" unless type_match
 
     segment_type = type_match[1]
 
@@ -43,7 +45,7 @@ class ReservationParser
     elsif ACCOMMODATION_TYPES.include?(segment_type)
       parse_accommodation_segment(line, segment_type)
     else
-      raise "Unknown segment type: #{segment_type}"
+      raise ItineraryAppErrors::ReservationParserError, "Unknown segment type: #{segment_type}"
     end
   end
 
@@ -51,7 +53,7 @@ class ReservationParser
     # Pattern: SEGMENT: Type ABC 2024-12-25 14:30 -> DEF 16:45
     pattern = /^SEGMENT: #{type} (\w{3}) (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) -> (\w{3}) (\d{2}:\d{2})$/
     match = line.match(pattern)
-    raise "Invalid #{type.downcase} segment format" unless match
+    raise ItineraryAppErrors::ReservationParserError, "Invalid #{type.downcase} segment format" unless match
 
     origin, date, start_time, destination, end_time = match[1..5]
 
@@ -75,7 +77,7 @@ class ReservationParser
     # Pattern: SEGMENT: Type ABC 2024-12-25 -> 2024-12-27
     pattern = /^SEGMENT: #{type} (\w{3}) (\d{4}-\d{2}-\d{2}) -> (\d{4}-\d{2}-\d{2})$/
     match = line.match(pattern)
-    raise "Invalid #{type.downcase} segment format" unless match
+    raise ItineraryAppErrors::ReservationParserError, "Invalid #{type.downcase} segment format" unless match
 
     city, start_date, end_date = match[1..3]
 
@@ -94,30 +96,30 @@ class ReservationParser
 
   def self.validate_iata_code(code, field_name)
     unless code.match?(/^[A-Z]{3}$/)
-      raise "Invalid IATA #{field_name} format: #{code}. Must be 3 uppercase letters"
+      raise ItineraryAppErrors::ReservationParserError, "Invalid IATA #{field_name} format: #{code}. Must be 3 uppercase letters"
     end
   end
 
   def self.validate_date(date_str)
     unless date_str.match?(/^\d{4}-\d{2}-\d{2}$/)
-      raise "Invalid date format: #{date_str}. Must be YYYY-MM-DD"
+      raise ItineraryAppErrors::ReservationParserError, "Invalid date format: #{date_str}. Must be YYYY-MM-DD"
     end
 
     begin
       Date.parse(date_str)
     rescue Date::Error
-      raise "Invalid date: #{date_str}"
+      raise ItineraryAppErrors::ReservationParserError, "Invalid date: #{date_str}"
     end
   end
 
   def self.validate_time(time_str)
     unless time_str.match?(/^\d{2}:\d{2}$/)
-      raise "Invalid time format: #{time_str}. Must be HH:MM"
+      raise ItineraryAppErrors::ReservationParserError, "Invalid time format: #{time_str}. Must be HH:MM"
     end
 
     hour, minute = time_str.split(':').map(&:to_i)
-    raise "Invalid hour: #{hour}" unless (0..23).include?(hour)
-    raise "Invalid minute: #{minute}" unless (0..59).include?(minute)
+    raise ItineraryAppErrors::ReservationParserError, "Invalid hour: #{hour}" unless (0..23).include?(hour)
+    raise ItineraryAppErrors::ReservationParserError, "Invalid minute: #{minute}" unless (0..59).include?(minute)
   end
 
   def self.validate_date_range(start_date, end_date)
@@ -125,7 +127,7 @@ class ReservationParser
     end_d = Date.parse(end_date)
 
     if end_d <= start_d
-      raise "End date (#{end_date}) must be after start date (#{start_date})"
+      raise ItineraryAppErrors::ReservationParserError, "End date (#{end_date}) must be after start date (#{start_date})"
     end
   end
 
