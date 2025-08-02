@@ -23,6 +23,10 @@ class ItineraryApp
     puts "Error: #{e.message}"
     puts e.backtrace if ENV['DEBUG']
     exit 1
+  rescue => e
+    puts "Error: #{e.message}"
+    puts e.backtrace if ENV['DEBUG']
+    exit 1
   end
 
   private
