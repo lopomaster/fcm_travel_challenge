@@ -11,8 +11,8 @@ class TripBuilder
     all_segments = extract_all_segments(reservations)
     all_segments_ordered = sort_segments_by_date(all_segments)
 
-    transit_segments = all_segments_ordered.select { |s| s.is_a?(TransitReservation) }
-    accommodation_segments = all_segments_ordered.select { |s| s.is_a?(AccommodationReservation) }
+    transit_segments = all_segments_ordered.select { |s| s.is_a?(TransitReservation) }.group_by(&:origin)
+    accommodation_segments = all_segments_ordered.select { |s| s.is_a?(AccommodationReservation) }.group_by(&:location)
 
     reservation_chains = build_chains(transit_segments, accommodation_segments)
     reservation_chains
@@ -30,8 +30,10 @@ class TripBuilder
   end
 
   def build_chains(transit_segments, accommodation_segments)
-    base_transits = transit_segments.select { |s| s.origin == @base_airport }
+    base_transits = transit_segments[@base_airport]
     chains = []
+
+    raise ItineraryAppErrors::ItineraryAppError, "There are not reservations from #{@base_airport}" if base_transits.nil?
 
     base_transits.each do |start_transit|
       next if already_in_chain?(start_transit, chains)
@@ -48,19 +50,23 @@ class TripBuilder
 
     visited.add(start_transit)
     chain = [start_transit]
+    if start_transit.is_a?(TransitReservation)
+      city = start_transit.destination
+    else
+      city = start_transit.location
+    end
 
-    next_reservations = all_transits.select do |t|
+    next_reservations = all_transits[city]&.select do |t|
       transits_connect_within_24h?(start_transit, t) && !visited.include?(t)
     end
 
-    if next_reservations.empty?
-      next_reservations = all_accommodations.select do |s|
+    if next_reservations&.empty?
+      next_reservations = all_accommodations[city]&.select do |s|
         reservation_connect?(start_transit, s) && !visited.include?(s)
       end
     end
 
-
-    next_reservations.each do |next_reservation|
+    next_reservations&.each do |next_reservation|
       chain << next_reservation
       sub_chain = build_single_chain(next_reservation, all_transits, all_accommodations, visited.dup)
       chain.concat(sub_chain)
