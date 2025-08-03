@@ -8,7 +8,7 @@ class TransitReservation < ReservationSegment
     @transport_type = transport_type
     @origin = origin
     @destination = destination
-    @start_date_time = start_time
+    @start_time = start_time
     @end_time = end_time
   end
 

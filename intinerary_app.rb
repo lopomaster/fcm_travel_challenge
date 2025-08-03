@@ -17,15 +17,15 @@ class ItineraryApp
     output_trips(trips)
   rescue ItineraryAppErrors::ReservationParserError => e
     puts "Error processing file: #{e.message}"
-    puts e.backtrace if ENV['DEBUG']
+    puts_backtrace(e)
     exit 1
   rescue ItineraryAppErrors::ItineraryAppError => e
     puts "Error: #{e.message}"
-    puts e.backtrace if ENV['DEBUG']
+    puts_backtrace(e)
     exit 1
   rescue => e
     puts "Error: #{e.message}"
-    puts e.backtrace if ENV['DEBUG']
+    puts_backtrace(e)
     exit 1
   end
 
@@ -35,6 +35,13 @@ class ItineraryApp
     trips.each do |trip|
       puts trip
       puts
+    end
+  end
+
+  def puts_backtrace e
+    if ENV['DEBUG']
+      puts '----------'
+      puts e.backtrace
     end
   end
 end

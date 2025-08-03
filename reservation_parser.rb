@@ -52,11 +52,21 @@ class ReservationParser
 
   def self.parse_transport_segment(line, type)
     # Pattern: SEGMENT: Type ABC 2024-12-25 14:30 -> DEF 16:45
-    pattern = /^SEGMENT: #{type} (\w{3}) (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) -> (\w{3}) (\d{2}:\d{2})$/
-    match = line.match(pattern)
-    raise ItineraryAppErrors::ReservationParserError, "Invalid #{type.downcase} segment format" unless match
 
-    origin, date, start_time, destination, end_time = match[1..5]
+    flexible_pattern = /^SEGMENT: #{type} (\S+) (\S+) (\S+) -> (\S+) (\S+)$/
+    flexible_match = line.match(flexible_pattern)
+
+    raise ItineraryAppErrors::ReservationParserError, "Invalid #{type.downcase} segment format" unless flexible_match
+
+    origin, date, start_time, destination, end_time = flexible_match[1..5]
+
+    validate_iata_code_length(origin, "origin")
+    validate_iata_code_length(destination, "destination")
+
+    strict_pattern = /^SEGMENT: #{type} (\w{3}) (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) -> (\w{3}) (\d{2}:\d{2})$/
+    strict_match = line.match(strict_pattern)
+
+    raise ItineraryAppErrors::ReservationParserError, "Invalid #{type.downcase} segment format" unless strict_match
 
     validate_iata_code(origin, "origin")
     validate_iata_code(destination, "destination")
@@ -76,11 +86,20 @@ class ReservationParser
 
   def self.parse_accommodation_segment(line, type)
     # Pattern: SEGMENT: Type ABC 2024-12-25 -> 2024-12-27
-    pattern = /^SEGMENT: #{type} (\w{3}) (\d{4}-\d{2}-\d{2}) -> (\d{4}-\d{2}-\d{2})$/
-    match = line.match(pattern)
-    raise ItineraryAppErrors::ReservationParserError, "Invalid #{type.downcase} segment format" unless match
 
-    city, start_date, end_date = match[1..3]
+    flexible_pattern = /^SEGMENT: #{type} (\S+) (\S+) -> (\S+)$/
+    flexible_match = line.match(flexible_pattern)
+
+    raise ItineraryAppErrors::ReservationParserError, "Invalid #{type.downcase} segment format" unless flexible_match
+
+    city, start_date, end_date = flexible_match[1..3]
+
+    validate_iata_code_length(city, "city")
+
+    strict_pattern = /^SEGMENT: #{type} (\w{3}) (\d{4}-\d{2}-\d{2}) -> (\d{4}-\d{2}-\d{2})$/
+    strict_match = line.match(strict_pattern)
+
+    raise ItineraryAppErrors::ReservationParserError, "Invalid #{type.downcase} segment format" unless strict_match
 
     validate_iata_code(city, "city")
     validate_date(start_date)
@@ -98,6 +117,12 @@ class ReservationParser
   def self.validate_iata_code(code, field_name)
     unless code.match?(/^[A-Z]{3}$/)
       raise ItineraryAppErrors::ReservationParserError, "Invalid IATA #{field_name} format: #{code}. Must be 3 uppercase letters"
+    end
+  end
+
+  def self.validate_iata_code_length(code, field_name)
+    unless code.length == 3
+      raise ItineraryAppErrors::ReservationParserError, "Invalid IATA #{field_name} code: #{code}. Must be exactly 3 characters"
     end
   end
 
