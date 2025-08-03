@@ -13,8 +13,4 @@ class BusSegment < TransitReservation
     )
   end
 
-  def to_s
-    "Bus from #{origin} to #{destination} at #{start_date} #{start_time} to #{end_time}"
-  end
-
 end

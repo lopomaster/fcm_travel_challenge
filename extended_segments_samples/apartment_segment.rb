@@ -11,7 +11,4 @@ class ApartmentSegment < AccommodationReservation
     )
   end
 
-  def to_s
-    "Apartment at #{origin} on #{start_date} to #{end_date}"
-  end
 end
