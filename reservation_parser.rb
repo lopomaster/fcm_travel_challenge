@@ -63,7 +63,7 @@ class ReservationParser
     validate_iata_code_length(origin, "origin")
     validate_iata_code_length(destination, "destination")
 
-    strict_pattern = /^SEGMENT: #{type} (\w{3}) (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) -> (\w{3}) (\d{2}:\d{2})$/
+    strict_pattern = /^SEGMENT: #{type} (\S{3}) (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) -> (\S{3}) (\d{2}:\d{2})$/
     strict_match = line.match(strict_pattern)
 
     raise ItineraryAppErrors::ReservationParserError, "Invalid #{type.downcase} segment format" unless strict_match
@@ -96,7 +96,7 @@ class ReservationParser
 
     validate_iata_code_length(city, "city")
 
-    strict_pattern = /^SEGMENT: #{type} (\w{3}) (\d{4}-\d{2}-\d{2}) -> (\d{4}-\d{2}-\d{2})$/
+    strict_pattern = /^SEGMENT: #{type} (\S{3}) (\d{4}-\d{2}-\d{2}) -> (\d{4}-\d{2}-\d{2})$/
     strict_match = line.match(strict_pattern)
 
     raise ItineraryAppErrors::ReservationParserError, "Invalid #{type.downcase} segment format" unless strict_match

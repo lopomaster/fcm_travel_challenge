@@ -7,7 +7,9 @@ class Main
   end
 
   def execute
-    beginning_time = Time.now
+    if ENV['DEBUG']
+      beginning_time = Time.now
+    end
 
     if ARGV.empty?
       puts "Usage: ruby #{$0} <input_file>"
@@ -26,8 +28,10 @@ class Main
     app = ItineraryApp.new(base_airport)
     app.process_file(ARGV[0])
 
-    end_time = Time.now
-    puts "execution time: #{end_time - beginning_time} seconds"
+    if ENV['DEBUG']
+      end_time = Time.now
+      puts "ItineraryApp execution time: #{end_time - beginning_time} seconds"
+    end
 
   end
 

@@ -11,6 +11,10 @@ class ItineraryApp
   end
 
   def process_file(filename)
+    unless File.exist?(filename)
+      raise ItineraryAppErrors::ReservationParserError, "File not found #{filename}"
+    end
+
     reservations = ReservationParser.parse_file(filename)
     trips = @trip_builder.build_trips(reservations)
 
