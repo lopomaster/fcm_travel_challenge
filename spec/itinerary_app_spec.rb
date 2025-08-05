@@ -1,4 +1,4 @@
-require_relative 'spec_helper'
+require_relative './spec_helper'
 require_relative 'support/test_helpers'
 require_relative '../reservation_parser'
 require_relative '../intinerary_app'

@@ -4,7 +4,7 @@ A Ruby application for processing travel reservations and generating organized i
 
 ## Description
 
-This application processes a text file containing flight, train, bus, and accommodation reservations, and generates organized trips based on logical connections between segments.
+This application processes a text file containing flight, train, bus travels and hotel or apartment reservations and generates organized trips based on logical connections between segments.
 
 ## Features
 
@@ -41,11 +41,15 @@ fcm_travel_challenge/
 ├── extended_segments_samples/
 │   ├── bus_segment.rb                # Extended segment example
 │   └── apartment_segment.rb          # Extended accommodation example
-├── spec/                             # Tests
+├── spec/                         # Comprehensive test suite
+│   ├── spec_helper.rb                # RSpec configuration
+│   ├── reservation_parser_spec.rb    # Parser validation tests
+│   ├── segments_spec.rb              # Segment behavior tests
+│   ├── trip_builder_spec.rb          # Trip logic tests
+│   └── integration_spec.rb           # End-to-end tests
 ├── input.txt                         # Sample input file
 ├── Gemfile                           # Ruby dependencies
 ├── Gemfile.lock                      # Locked versions
-├── Rakefile                          # Rake tasks
 └── README.md                         # This file
 ```
 
