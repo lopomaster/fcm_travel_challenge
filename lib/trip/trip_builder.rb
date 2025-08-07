@@ -3,8 +3,11 @@ require_relative '../reservations/accommodation_reservation'
 require_relative 'trip'
 
 class TripBuilder
+  attr_reader :orphaned_segments
+
   def initialize(base_airport)
     @base_airport = base_airport
+    @orphaned_segments = []
   end
 
   def build_trips(reservations)
@@ -17,10 +20,27 @@ class TripBuilder
     reservation_chains = build_chains(transit_segments, accommodation_segments)
     reservation_chains
 
+    identify_orphaned_segments(all_segments_ordered, reservation_chains)
+
     enhanced_trips = associate_accommodation_with_destination(reservation_chains)
 
     trips = create_trip_objects(enhanced_trips)
     trips.sort_by { |trip| trip.segments.first.start_datetime }
+  end
+
+  def has_orphaned_segments?
+    !@orphaned_segments.empty?
+  end
+
+  def orphaned_segments_by_type
+    {
+      transit: @orphaned_segments.select { |s| s.is_a?(TransitReservation) },
+      accommodation: @orphaned_segments.select { |s| s.is_a?(AccommodationReservation) }
+    }
+  end
+
+  def orphaned_segments_count
+    @orphaned_segments.length
   end
 
   private
@@ -155,6 +175,11 @@ class TripBuilder
     segments.sort_by do |segment|
       segment.start_datetime
     end
+  end
+
+  def identify_orphaned_segments(all_segments, chains)
+    used_segments = chains.flatten
+    @orphaned_segments = all_segments - used_segments
   end
 
 end

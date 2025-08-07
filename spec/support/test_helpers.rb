@@ -67,6 +67,14 @@ module TestHelpers
     )
   end
 
+  def create_apartment_segment(city: 'BCN', start_date: '2023-01-05', end_date: '2023-01-10')
+    ApartmentSegment.new(
+      city: city,
+      start_date: start_date,
+      end_date: end_date
+    )
+  end
+
   def create_trip_with_segments(destination, *segments)
     trip = Trip.new(destination)
     segments.each { |segment| trip.add_segment(segment) }

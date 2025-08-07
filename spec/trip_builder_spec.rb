@@ -14,9 +14,307 @@ RSpec.describe TripBuilder do
     it 'sets the base airport' do
       expect(trip_builder.instance_variable_get(:@base_airport)).to eq(base_airport)
     end
+
+    it 'initializes orphaned_segments as empty array' do
+      expect(trip_builder.orphaned_segments).to eq([])
+    end
+  end
+
+  describe '#orphaned_segments' do
+    it 'returns the orphaned segments array' do
+      expect(trip_builder.orphaned_segments).to be_an(Array)
+    end
+  end
+
+  describe '#has_orphaned_segments?' do
+    context 'when there are no orphaned segments' do
+      it 'returns false' do
+        expect(trip_builder.has_orphaned_segments?).to be false
+      end
+    end
+
+    context 'when there are orphaned segments' do
+      let(:orphaned_segment) do
+        TransitReservation.new(
+          transport_type: 'Flight',
+          origin: 'BCN',
+          destination: 'NYC',
+          start_date: '2023-03-02',
+          start_time: '15:00',
+          end_time: '22:45'
+        )
+      end
+
+      before do
+        trip_builder.instance_variable_set(:@orphaned_segments, [orphaned_segment])
+      end
+
+      it 'returns true' do
+        expect(trip_builder.has_orphaned_segments?).to be true
+      end
+    end
+  end
+
+  describe '#orphaned_segments_by_type' do
+    let(:flight_segment) do
+      TransitReservation.new(
+        transport_type: 'Flight',
+        origin: 'BCN',
+        destination: 'NYC',
+        start_date: '2023-03-02',
+        start_time: '15:00',
+        end_time: '22:45'
+      )
+    end
+
+    let(:hotel_segment) do
+      AccommodationReservation.new(
+        accommodation_type: 'Hotel',
+        location: 'NYC',
+        start_date: '2023-03-02',
+        end_date: '2023-03-05'
+      )
+    end
+
+    before do
+      trip_builder.instance_variable_set(:@orphaned_segments, [flight_segment, hotel_segment])
+    end
+
+    it 'returns segments grouped by type' do
+      result = trip_builder.orphaned_segments_by_type
+
+      expect(result[:transit]).to contain_exactly(flight_segment)
+      expect(result[:accommodation]).to contain_exactly(hotel_segment)
+    end
+
+    context 'with only transit segments' do
+      before do
+        trip_builder.instance_variable_set(:@orphaned_segments, [flight_segment])
+      end
+
+      it 'returns empty accommodation array' do
+        result = trip_builder.orphaned_segments_by_type
+
+        expect(result[:transit]).to contain_exactly(flight_segment)
+        expect(result[:accommodation]).to be_empty
+      end
+    end
+
+    context 'with only accommodation segments' do
+      before do
+        trip_builder.instance_variable_set(:@orphaned_segments, [hotel_segment])
+      end
+
+      it 'returns empty transit array' do
+        result = trip_builder.orphaned_segments_by_type
+
+        expect(result[:transit]).to be_empty
+        expect(result[:accommodation]).to contain_exactly(hotel_segment)
+      end
+    end
+  end
+
+  describe '#orphaned_segments_count' do
+    context 'when there are no orphaned segments' do
+      it 'returns 0' do
+        expect(trip_builder.orphaned_segments_count).to eq(0)
+      end
+    end
+
+    context 'when there are orphaned segments' do
+      let(:segments) do
+        [
+          TransitReservation.new(
+            transport_type: 'Flight',
+            origin: 'BCN',
+            destination: 'NYC',
+            start_date: '2023-03-02',
+            start_time: '15:00',
+            end_time: '22:45'
+          ),
+          AccommodationReservation.new(
+            accommodation_type: 'Hotel',
+            location: 'NYC',
+            start_date: '2023-03-02',
+            end_date: '2023-03-05'
+          )
+        ]
+      end
+
+      before do
+        trip_builder.instance_variable_set(:@orphaned_segments, segments)
+      end
+
+      it 'returns the correct count' do
+        expect(trip_builder.orphaned_segments_count).to eq(2)
+      end
+    end
   end
 
   describe '#build_trips' do
+
+    context 'with orphaned segments' do
+      let(:reservations) do
+        connected_reservation = Reservation.new
+        connected_reservation.add_segment(
+          TransitReservation.new(
+            transport_type: 'Flight',
+            origin: 'SVQ',
+            destination: 'BCN',
+            start_date: '2023-01-05',
+            start_time: '20:40',
+            end_time: '22:10'
+          )
+        )
+        connected_reservation.add_segment(
+          AccommodationReservation.new(
+            accommodation_type: 'Hotel',
+            location: 'BCN',
+            start_date: '2023-01-05',
+            end_date: '2023-01-10'
+          )
+        )
+        connected_reservation.add_segment(
+          TransitReservation.new(
+            transport_type: 'Flight',
+            origin: 'BCN',
+            destination: 'SVQ',
+            start_date: '2023-01-10',
+            start_time: '10:30',
+            end_time: '11:50'
+          )
+        )
+
+        orphaned_reservation = Reservation.new
+        orphaned_reservation.add_segment(
+          TransitReservation.new(
+            transport_type: 'Flight',
+            origin: 'BCN',
+            destination: 'NYC',
+            start_date: '2023-03-02',
+            start_time: '15:00',
+            end_time: '22:45'
+          )
+        )
+
+        [connected_reservation, orphaned_reservation]
+      end
+
+      it 'builds trips and identifies orphaned segments' do
+        trips = trip_builder.build_trips(reservations)
+
+        expect(trips.length).to eq(1)
+        expect(trip_builder.has_orphaned_segments?).to be true
+        expect(trip_builder.orphaned_segments_count).to eq(1)
+
+        orphaned_segment = trip_builder.orphaned_segments.first
+        expect(orphaned_segment).to be_a(TransitReservation)
+        expect(orphaned_segment.origin).to eq('BCN')
+        expect(orphaned_segment.destination).to eq('NYC')
+      end
+
+      it 'correctly categorizes orphaned segments by type' do
+        trip_builder.build_trips(reservations)
+
+        by_type = trip_builder.orphaned_segments_by_type
+        expect(by_type[:transit].length).to eq(1)
+        expect(by_type[:accommodation].length).to eq(0)
+      end
+    end
+
+    context 'with no orphaned segments' do
+      let(:reservations) do
+        reservation = Reservation.new
+        reservation.add_segment(
+          TransitReservation.new(
+            transport_type: 'Flight',
+            origin: 'SVQ',
+            destination: 'BCN',
+            start_date: '2023-01-05',
+            start_time: '20:40',
+            end_time: '22:10'
+          )
+        )
+        reservation.add_segment(
+          TransitReservation.new(
+            transport_type: 'Flight',
+            origin: 'BCN',
+            destination: 'SVQ',
+            start_date: '2023-01-06',
+            start_time: '10:30',
+            end_time: '11:50'
+          )
+        )
+
+        [reservation]
+      end
+
+      it 'does not have orphaned segments' do
+        trips = trip_builder.build_trips(reservations)
+
+        expect(trips.length).to eq(1)
+        expect(trip_builder.has_orphaned_segments?).to be false
+        expect(trip_builder.orphaned_segments_count).to eq(0)
+      end
+    end
+
+    context 'with multiple types of orphaned segments' do
+      let(:reservations) do
+        # Connected trip
+        connected_reservation = Reservation.new
+        connected_reservation.add_segment(
+          TransitReservation.new(
+            transport_type: 'Flight',
+            origin: 'SVQ',
+            destination: 'MAD',
+            start_date: '2023-01-05',
+            start_time: '20:40',
+            end_time: '22:10'
+          )
+        )
+
+        orphaned_flight_reservation = Reservation.new
+        orphaned_flight_reservation.add_segment(
+          TransitReservation.new(
+            transport_type: 'Flight',
+            origin: 'BCN',
+            destination: 'NYC',
+            start_date: '2023-03-02',
+            start_time: '15:00',
+            end_time: '22:45'
+          )
+        )
+
+        orphaned_hotel_reservation = Reservation.new
+        orphaned_hotel_reservation.add_segment(
+          AccommodationReservation.new(
+            accommodation_type: 'Hotel',
+            location: 'PAR',
+            start_date: '2023-04-01',
+            end_date: '2023-04-05'
+          )
+        )
+
+        [connected_reservation, orphaned_flight_reservation, orphaned_hotel_reservation]
+      end
+
+      it 'identifies both transit and accommodation orphaned segments' do
+        trips = trip_builder.build_trips(reservations)
+
+        expect(trip_builder.orphaned_segments_count).to eq(2)
+
+        by_type = trip_builder.orphaned_segments_by_type
+        expect(by_type[:transit].length).to eq(1)
+        expect(by_type[:accommodation].length).to eq(1)
+
+        transit_segment = by_type[:transit].first
+        expect(transit_segment.destination).to eq('NYC')
+
+        accommodation_segment = by_type[:accommodation].first
+        expect(accommodation_segment.location).to eq('PAR')
+      end
+    end
+
     context 'with simple round trip' do
       let(:reservations) do
         reservation1 = Reservation.new
@@ -60,6 +358,63 @@ RSpec.describe TripBuilder do
         segments = trips.first.segments
 
         expect(segments.first.start_datetime).to be < segments.last.start_datetime
+      end
+    end
+
+    describe '#build_trips - reservations with more than 24h' do
+      context 'with simple round trip' do
+        let(:reservations) do
+          reservation1 = Reservation.new
+          reservation1.add_segment(FlightSegment.new(
+            origin: 'SVQ',
+            destination: 'BCN',
+            start_date: '2023-03-02',
+            start_time: '06:40',
+            end_time: '09:10'
+          ))
+
+          reservation2 = Reservation.new
+          reservation2.add_segment(FlightSegment.new(
+            origin: 'SVQ',
+            destination: 'MAD',
+            start_date: '2023-03-05',
+            start_time: '15:00',
+            end_time: '16:30'
+          ))
+
+
+          reservation3 = Reservation.new
+          reservation3.add_segment(FlightSegment.new(
+            origin: 'MAD',
+            destination: 'SVQ',
+            start_date: '2023-05-05',
+            start_time: '15:00',
+            end_time: '16:30'
+          ))
+
+          [reservation1, reservation2, reservation3]
+        end
+
+        it 'builds one trip' do
+          trips = trip_builder.build_trips(reservations)
+          expect(trips.length).to eq(2)
+          expect(trip_builder.orphaned_segments.length).to eq(1)
+        end
+
+        it 'creates two trips with correct destination' do
+          trips = trip_builder.build_trips(reservations)
+          expect(trips.first.destination).to eq('BCN')
+          expect(trips.first.segments.size).to eq(1)
+
+          expect(trips.last.destination).to eq('MAD')
+          expect(trips.last.segments.size).to eq(1)
+        end
+
+        it 'includes all segments in two trip' do
+          trips = trip_builder.build_trips(reservations)
+          expect(trips.first.segments.length).to eq(1)
+          expect(trips.last.segments.length).to eq(1)
+        end
       end
     end
 
