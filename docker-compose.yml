@@ -1,0 +1,22 @@
+
+services:
+  fcm_travel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fcm_travel_app
+    volumes:
+      - .:/app
+      - bundle_cache:/usr/local/bundle
+      - ./coverage:/app/coverage
+    environment:
+      - RAILS_ENV=test
+      - BASED=SVQ
+    working_dir: /app
+    tty: true
+    stdin_open: true
+    command: tail -f /dev/null
+
+volumes:
+  bundle_cache:
+    driver: local
